@@ -8,7 +8,7 @@ import type { Battle } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
 /** The only URL that ever appears in any share output. No paths, no battle IDs. */
-const SITE_URL = "https://auraarena.netlify.app";
+const SITE_URL = "https://auraarenaokx.netlify.app";
 
 export function ShareCard({ battle }: { battle: Battle }) {
   const humanWon = battle.winner === "HUMAN";
