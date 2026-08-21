@@ -38,7 +38,7 @@ async function post(messages: ChatMessage[], opts: ChatOptions): Promise<Respons
       headers: {
         Authorization: `Bearer ${serverConfig.openrouterKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://auraarena.netlify.app",
+        "HTTP-Referer": "https://auraarenaokx.netlify.app",
         "X-Title": "AURA Arena",
       },
       body: JSON.stringify({
@@ -146,3 +146,4 @@ export function extractJson<T>(text: string | null): T | null {
     return null;
   }
 }
+
