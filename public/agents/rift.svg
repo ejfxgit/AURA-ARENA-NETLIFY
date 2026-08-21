@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="RIFT">
+  <defs>
+    <radialGradient id="riftBg" cx="50%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#3a0d1b"/>
+      <stop offset="58%" stop-color="#130a10"/>
+      <stop offset="100%" stop-color="#05070d"/>
+    </radialGradient>
+    <radialGradient id="riftGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fb7185" stop-opacity=".45"/>
+      <stop offset="100%" stop-color="#fb7185" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="riftLeft"><rect x="0" y="0" width="118" height="256"/></clipPath>
+    <clipPath id="riftRight"><rect x="138" y="0" width="118" height="256"/></clipPath>
+  </defs>
+  <rect width="256" height="256" fill="url(#riftBg)"/>
+  <circle cx="128" cy="128" r="96" fill="url(#riftGlow)"/>
+
+  <!-- one structure, dislocated: the anomaly is the offset itself -->
+  <g fill="none" stroke="#fb7185" stroke-width="17">
+    <g clip-path="url(#riftLeft)"><g transform="translate(-7 -15)"><circle cx="128" cy="128" r="74"/></g></g>
+    <g clip-path="url(#riftRight)"><g transform="translate(7 15)"><circle cx="128" cy="128" r="74"/></g></g>
+  </g>
+
+  <!-- the tear -->
+  <path d="M146 8 114 78l28 38-32 42 28 38-26 52" fill="none" stroke="#ffe4e6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

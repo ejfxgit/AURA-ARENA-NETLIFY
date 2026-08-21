@@ -1,0 +1,13 @@
+
+> aura-arena@0.1.0 dev
+> next dev --port 3008
+
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:3008
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.6s
+ ○ Compiling / ...
+ ✓ Compiled / in 20.1s (2300 modules)
+ GET / 200 in 350ms

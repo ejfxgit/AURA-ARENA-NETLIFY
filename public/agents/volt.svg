@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="VOLT">
+  <defs>
+    <radialGradient id="voltBg" cx="50%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#09301f"/>
+      <stop offset="58%" stop-color="#071114"/>
+      <stop offset="100%" stop-color="#05070d"/>
+    </radialGradient>
+    <radialGradient id="voltGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22e39a" stop-opacity=".5"/>
+      <stop offset="100%" stop-color="#22e39a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="voltBolt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#b6ffe2"/>
+      <stop offset="45%" stop-color="#22e39a"/>
+      <stop offset="100%" stop-color="#0fae74"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#voltBg)"/>
+  <circle cx="128" cy="128" r="96" fill="url(#voltGlow)"/>
+
+  <!-- momentum ladder behind the strike -->
+  <g fill="#22e39a" fill-opacity=".22">
+    <rect x="26" y="156" width="26" height="62" rx="6"/>
+    <rect x="62" y="128" width="26" height="90" rx="6"/>
+    <rect x="168" y="98" width="26" height="120" rx="6"/>
+    <rect x="204" y="62" width="26" height="156" rx="6"/>
+  </g>
+
+  <!-- breakout strike -->
+  <path d="M158 22 74 140h42l-18 94 84-126h-42z" fill="url(#voltBolt)" stroke="#05231a" stroke-width="7" stroke-linejoin="round"/>
+</svg>

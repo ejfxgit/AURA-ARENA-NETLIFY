@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="ATLAS">
+  <defs>
+    <radialGradient id="atlasBg" cx="50%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#06283a"/>
+      <stop offset="58%" stop-color="#071019"/>
+      <stop offset="100%" stop-color="#05070d"/>
+    </radialGradient>
+    <radialGradient id="atlasGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity=".45"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#atlasBg)"/>
+  <circle cx="128" cy="128" r="96" fill="url(#atlasGlow)"/>
+
+  <!-- liquidity strata, deepest at the base -->
+  <rect x="30" y="186" width="196" height="32" rx="8" fill="#38bdf8" fill-opacity=".28"/>
+  <rect x="49" y="146" width="158" height="32" rx="8" fill="#38bdf8" fill-opacity=".46"/>
+  <rect x="68" y="106" width="120" height="32" rx="8" fill="#38bdf8" fill-opacity=".68"/>
+  <rect x="87" y="66" width="82" height="32" rx="8" fill="#7dd3fc"/>
+
+  <!-- structure break above the stack -->
+  <path d="M99 44 128 18 157 44" fill="none" stroke="#e0f2fe" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

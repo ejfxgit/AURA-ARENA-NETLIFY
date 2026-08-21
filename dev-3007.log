@@ -1,0 +1,170 @@
+
+> aura-arena@0.1.0 dev
+> next dev --port 3007
+
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:3007
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.9s
+ ○ Compiling / ...
+ ✓ Compiled / in 19.8s (2300 modules)
+ GET / 200 in 21338ms
+ ○ Compiling /api/leaderboard ...
+ ✓ Compiled /api/leaderboard in 9.5s (1709 modules)
+ ✓ Compiled (1715 modules)
+ GET /api/leaderboard 200 in 10313ms
+ GET /api/account?userId=u_k3oyocop 200 in 10327ms
+ GET /api/battles 200 in 10532ms
+ GET /api/battles 200 in 10531ms
+ GET /api/battles 200 in 10535ms
+ GET /api/markets 200 in 10553ms
+ GET /api/battles 200 in 77ms
+ GET /api/battles 200 in 75ms
+ GET /api/battles 200 in 60ms
+ GET /api/battles 200 in 57ms
+ GET /api/leaderboard 200 in 80ms
+ GET /api/account?userId=u_k3oyocop 200 in 122ms
+ GET /api/markets 200 in 112ms
+ GET /api/battles 200 in 120ms
+ GET / 200 in 655ms
+ GET /api/battles 200 in 47ms
+ GET /api/battles 200 in 46ms
+ GET /api/battles 200 in 45ms
+ GET /api/account?userId=u_yntq6cm8 200 in 66ms
+ GET /api/leaderboard 200 in 87ms
+ GET /api/markets 200 in 102ms
+ GET /api/battles 200 in 75ms
+ GET /api/battles 200 in 100ms
+ GET /api/battles 200 in 100ms
+ GET /api/leaderboard 200 in 74ms
+ GET /api/battles 200 in 89ms
+ GET /api/account?userId=u_yntq6cm8 200 in 99ms
+ GET /api/markets 200 in 97ms
+ GET /api/battles 200 in 83ms
+ ○ Compiling /arena ...
+ ✓ Compiled /arena in 11s (3906 modules)
+ GET /arena 200 in 11699ms
+ ✓ Compiled in 4.1s (3371 modules)
+ GET /arena 200 in 668ms
+ GET / 200 in 442ms
+ ○ Compiling /api/markets ...
+ ✓ Compiled /api/markets in 2.8s (2246 modules)
+ ✓ Compiled (2252 modules)
+ GET /api/battles 200 in 3872ms
+ GET /api/battles 200 in 3871ms
+ GET /api/battles 200 in 3874ms
+ GET /api/account?userId=u_dpr7whck 200 in 3883ms
+ GET /api/leaderboard 200 in 3895ms
+ GET /api/markets 200 in 3910ms
+ GET /api/battles 200 in 34ms
+ GET /api/leaderboard 200 in 58ms
+ GET /api/account?userId=u_dpr7whck 200 in 64ms
+ GET /api/battles 200 in 80ms
+ GET /api/battles 200 in 80ms
+ GET /api/battles 200 in 76ms
+ GET /api/markets 200 in 85ms
+ GET /api/battles 200 in 53ms
+ ✓ Compiled in 5.4s (3371 modules)
+ GET / 200 in 885ms
+ ○ Compiling /api/leaderboard ...
+ ✓ Compiled /api/leaderboard in 639ms (2246 modules)
+ ✓ Compiled (2252 modules)
+ GET /api/battles 200 in 1724ms
+ GET /api/battles 200 in 1723ms
+ GET /api/battles 200 in 1726ms
+ GET /api/account?userId=u_sx4jwi79 200 in 1734ms
+ GET /api/leaderboard 200 in 1745ms
+ GET /api/markets 200 in 1753ms
+ GET /api/battles 200 in 44ms
+ GET /api/battles 200 in 43ms
+ GET /api/battles 200 in 43ms
+ GET /api/battles 200 in 42ms
+ GET /api/account?userId=u_sx4jwi79 200 in 53ms
+ GET /api/leaderboard 200 in 64ms
+ GET /api/markets 200 in 61ms
+ GET /api/battles 200 in 69ms
+ GET / 200 in 676ms
+ GET /api/battles 200 in 78ms
+ GET /api/battles 200 in 76ms
+ GET /api/battles 200 in 74ms
+ GET /api/account?userId=u_eyskjlj0 200 in 95ms
+ GET /api/leaderboard 200 in 113ms
+ GET /api/markets 200 in 123ms
+ GET /api/battles 200 in 111ms
+ GET /api/battles 200 in 110ms
+ GET /api/battles 200 in 109ms
+ GET /api/account?userId=u_eyskjlj0 200 in 99ms
+ GET /api/leaderboard 200 in 106ms
+ GET /api/battles 200 in 114ms
+ GET /api/battles 200 in 73ms
+ GET /api/markets 200 in 104ms
+ GET / 200 in 183ms
+ GET /api/battles 200 in 28ms
+ GET /api/battles 200 in 59ms
+ GET /api/battles 200 in 58ms
+ GET /api/account?userId=u_6zor2mpq 200 in 78ms
+ GET /api/leaderboard 200 in 85ms
+ GET /api/battles 200 in 75ms
+ GET /api/markets 200 in 121ms
+ GET /api/battles 200 in 64ms
+ GET /api/battles 200 in 64ms
+ GET /api/leaderboard 200 in 80ms
+ GET /api/account?userId=u_6zor2mpq 200 in 86ms
+ GET /api/battles 200 in 63ms
+ GET /api/markets 200 in 81ms
+ GET /api/battles 200 in 59ms
+ GET / 200 in 402ms
+ GET /arena 200 in 358ms
+ ○ Compiling /arena/battles ...
+ ✓ Compiled /arena/battles in 5.2s (3894 modules)
+ GET /arena/battles 200 in 5681ms
+ ○ Compiling /arena/agents ...
+ ✓ Compiled /arena/agents in 1055ms (3361 modules)
+ GET /arena/agents 200 in 1560ms
+ ○ Compiling /arena/performance ...
+ ✓ Compiled /arena/performance in 1094ms (3363 modules)
+ GET /arena/performance 200 in 1446ms
+ ○ Compiling /arena/leaderboard ...
+ ✓ Compiled /arena/leaderboard in 1135ms (3365 modules)
+ GET /arena/leaderboard 200 in 1334ms
+ ○ Compiling /arena/markets ...
+ ✓ Compiled /arena/markets in 1257ms (3367 modules)
+ GET /arena/markets 200 in 1460ms
+ ○ Compiling /arena/portfolio ...
+ ✓ Compiled /arena/portfolio in 1148ms (3369 modules)
+ GET /arena/portfolio 200 in 1375ms
+ ○ Compiling /arena/transactions ...
+ ✓ Compiled /arena/transactions in 1287ms (3371 modules)
+ GET /arena/transactions 200 in 1493ms
+ ○ Compiling /arena/withdraw ...
+ ✓ Compiled /arena/withdraw in 1349ms (3373 modules)
+ GET /arena/withdraw 200 in 1567ms
+ ○ Compiling /arena/profile ...
+ ✓ Compiled /arena/profile in 1285ms (3375 modules)
+ GET /arena/profile 200 in 1482ms
+ ○ Compiling /arena/proof ...
+ ✓ Compiled /arena/proof in 1397ms (3377 modules)
+ GET /arena/proof 200 in 1612ms
+ ○ Compiling /arena/settings ...
+ ✓ Compiled /arena/settings in 1434ms (3379 modules)
+ GET /arena/settings 200 in 1854ms
+ ○ Compiling /api/markets ...
+ ✓ Compiled /api/markets in 1310ms (1772 modules)
+ GET /api/markets 200 in 1547ms
+ ○ Compiling /api/leaderboard ...
+ ✓ Compiled /api/leaderboard in 924ms (1775 modules)
+ GET /api/leaderboard 200 in 1045ms
+ ○ Compiling /api/wallet/account ...
+ ✓ Compiled /api/wallet/account in 4.8s (2264 modules)
+ GET /api/wallet/account 401 in 5036ms
+ ✓ Compiled in 4.7s (3371 modules)
+ ○ Compiling /api/leaderboard ...
+ ✓ Compiled /api/leaderboard in 508ms (1748 modules)
+ GET /api/leaderboard 200 in 659ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 6.9s (3596 modules)
+ GET / 500 in 7546ms
+ ✓ Compiled in 718ms (1825 modules)
+ ✓ Compiled in 457ms (1757 modules)

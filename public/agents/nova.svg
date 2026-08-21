@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="NOVA">
+  <defs>
+    <radialGradient id="novaBg" cx="50%" cy="30%" r="82%">
+      <stop offset="0%" stop-color="#221541"/>
+      <stop offset="58%" stop-color="#0a0c16"/>
+      <stop offset="100%" stop-color="#05070d"/>
+    </radialGradient>
+    <radialGradient id="novaGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity=".55"/>
+      <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#novaBg)"/>
+  <circle cx="128" cy="128" r="96" fill="url(#novaGlow)"/>
+
+  <!-- onchain graph: orbital ring, spokes out to wallet nodes -->
+  <circle cx="128" cy="128" r="74" fill="none" stroke="#c084fc" stroke-opacity=".3" stroke-width="4"/>
+  <g stroke="#c084fc" stroke-opacity=".85" stroke-width="9" stroke-linecap="round">
+    <path d="M128 128 128 54"/>
+    <path d="M128 128 192 91"/>
+    <path d="M128 128 192 165"/>
+    <path d="M128 128 128 202"/>
+    <path d="M128 128 64 165"/>
+    <path d="M128 128 64 91"/>
+  </g>
+  <g fill="#d8b4fe">
+    <circle cx="128" cy="54" r="15"/>
+    <circle cx="192" cy="91" r="13"/>
+    <circle cx="192" cy="165" r="13"/>
+    <circle cx="128" cy="202" r="15"/>
+    <circle cx="64" cy="165" r="13"/>
+    <circle cx="64" cy="91" r="13"/>
+  </g>
+
+  <!-- nova core -->
+  <circle cx="128" cy="128" r="31" fill="#0b0715"/>
+  <circle cx="128" cy="128" r="31" fill="none" stroke="#e9d5ff" stroke-width="9"/>
+  <circle cx="128" cy="128" r="12" fill="#ffffff"/>
+</svg>
