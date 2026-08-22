@@ -58,6 +58,7 @@ import {
   type LiveSignal,
 } from "@/lib/market/live-signal";
 import type { AgentId, Battle, Recalculation } from "@/lib/types";
+import { chooseFreshBattle } from "@/lib/battle/state";
 import { battleExpiresAt } from "@/lib/battle/timing";
 
 /** The battle's OKX instrument id. `asset` may be a bare base currency. */
@@ -102,15 +103,19 @@ export default function BattlePage() {
   const { candles, error: candleError } = useLiveCandles(instId, BATTLE_BAR, 200);
   const livePrice = useLivePrice(instId, BATTLE_BAR);
 
+  const acceptBattle = useCallback((next: Battle) => {
+    setBattle((current) => chooseFreshBattle(current, next));
+  }, []);
+
   const load = useCallback(() => {
     if (!wallet.ready) return;
     api<{ battle: Battle; priceStale?: boolean }>(`/api/battles/${id}`)
       .then((d) => {
-        setBattle(d.battle);
+        acceptBattle(d.battle);
         setPriceStale(Boolean(d.priceStale));
       })
       .catch((e) => setError(e.message || "Battle not found."));
-  }, [id, wallet.ready]);
+  }, [acceptBattle, id, wallet.ready]);
 
   // Initial load.
   useEffect(() => {
@@ -157,7 +162,7 @@ export default function BattlePage() {
     setFinishing(true);
     api<{ battle: Battle }>(`/api/battles/${id}/finish`, { method: "POST" })
       .then((d) => {
-        setBattle(d.battle);
+        acceptBattle(d.battle);
         setSettleError(null);
         void wallet.refreshAccount();
       })
@@ -174,7 +179,7 @@ export default function BattlePage() {
         setSettleAttempt((n) => n + 1);
       })
       .finally(() => setFinishing(false));
-  }, [id, wallet]);
+  }, [acceptBattle, id, wallet]);
 
   // Retry settlement while the market feed is unavailable. `settleAttempt`
   // changes on every failure, which is what re-arms this timer.
@@ -198,12 +203,21 @@ export default function BattlePage() {
   const start = useCallback(() => {
     api<{ battle: Battle }>(`/api/battles/${id}/start`, { method: "POST" })
       .then((d) => {
-        setBattle(d.battle);
+        acceptBattle(d.battle);
         finishRequested.current = false;
+        setError(null);
         void wallet.refreshAccount();
       })
-      .catch(() => {});
-  }, [id, wallet]);
+      .catch((e) => {
+        setError(
+          e instanceof ApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : "Unable to start battle.",
+        );
+      });
+  }, [acceptBattle, id, wallet]);
 
   const submitChallenge = useCallback(() => {
     if (!message.trim() || challenging) return;
@@ -213,13 +227,13 @@ export default function BattlePage() {
       body: { battleId: id, message: message.trim() },
     })
       .then((d) => {
-        setBattle(d.battle);
+        acceptBattle(d.battle);
         setLastRecalc(d.recalculation);
         setMessage("");
       })
       .catch((e) => setError(e.message))
       .finally(() => setChallenging(false));
-  }, [id, message, challenging]);
+  }, [acceptBattle, id, message, challenging]);
 
   const verify = useCallback(() => {
     setVerifying(true);
@@ -227,10 +241,10 @@ export default function BattlePage() {
       method: "POST",
       body: { battleId: id },
     })
-      .then((d) => setBattle(d.battle))
+      .then((d) => acceptBattle(d.battle))
       .catch(() => {})
       .finally(() => setVerifying(false));
-  }, [id]);
+  }, [acceptBattle, id]);
 
   // ---- live agent signal + live position ----
   //
