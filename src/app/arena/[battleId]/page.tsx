@@ -82,6 +82,7 @@ export default function BattlePage() {
   const [settleAttempt, setSettleAttempt] = useState(0);
   const [verifying, setVerifying] = useState(false);
   const finishRequested = useRef(false);
+  const latestBattleRef = useRef<Battle | null>(null);
 
   const wallet = useWallet();
   const battleAsset = battle?.asset;
@@ -104,7 +105,9 @@ export default function BattlePage() {
   const livePrice = useLivePrice(instId, BATTLE_BAR);
 
   const acceptBattle = useCallback((next: Battle) => {
-    setBattle((current) => chooseFreshBattle(current, next));
+    const fresh = chooseFreshBattle(latestBattleRef.current, next);
+    latestBattleRef.current = fresh;
+    setBattle(fresh);
   }, []);
 
   const load = useCallback(() => {

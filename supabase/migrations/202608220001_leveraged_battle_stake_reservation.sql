@@ -208,3 +208,28 @@ $$;
 revoke all on function public.reset_demo_balance() from public;
 grant execute on function public.reset_demo_balance() to authenticated;
 notify pgrst, 'reload schema';
+
+-- Primary, owner-scoped battle read used after start/settlement writes. The row
+-- lock makes immediate serverless follow-up reads use the canonical row rather
+-- than a stale per-instance cache or read-replica snapshot.
+create or replace function public.get_wallet_battle(p_user_id uuid, p_battle_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_battle jsonb;
+begin
+  select battle into v_battle
+  from public.user_battles
+  where id = p_battle_id and owner_id = p_user_id
+  for key share;
+
+  return v_battle;
+end;
+$$;
+
+revoke all on function public.get_wallet_battle(uuid, text) from public, anon, authenticated;
+grant execute on function public.get_wallet_battle(uuid, text) to service_role;
+notify pgrst, 'reload schema';
