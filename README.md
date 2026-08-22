@@ -945,7 +945,7 @@ execution.
 Never expose:
 
 ``` text
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SECRET_KEY
 ```
 
 to browser code.
@@ -1135,7 +1135,7 @@ It should look like an Arena result, not a generic browser screenshot.
 The production public URL is:
 
 ``` text
-https://auraarena.netlify.app
+https://auraarenaokx.vercel.app
 ```
 
 The share output must never expose:
@@ -1186,7 +1186,7 @@ Human: SHORT · -2.41 AURA
 The machine made its move.
 Can you beat the AI?
 
-https://auraarena.netlify.app
+https://auraarenaokx.vercel.app
 ```
 
 The real values must be injected dynamically.
@@ -1452,8 +1452,12 @@ Never expose:
 
 ``` text
 OPENROUTER_API_KEY
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SECRET_KEY
+X_LAYER_DEPLOYER_PRIVATE_KEY
 X_LAYER_TREASURY_PRIVATE_KEY
+OKX_API_KEY
+OKX_API_SECRET
+OKX_API_PASSPHRASE
 ```
 
 Never trust client-generated:
@@ -1477,24 +1481,46 @@ The repository's `.env.example` is the authoritative list.
 Typical categories are:
 
 ``` env
+# Public deployment origin
+NEXT_PUBLIC_SITE_URL=https://auraarenaokx.vercel.app
+NEXT_PUBLIC_VERCEL_URL=
+
 # Supabase public
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 
 # Supabase server
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEY=
 
 # AI
 OPENROUTER_API_KEY=
+OPENROUTER_MODEL=
 
-# X Layer
+# X Layer server
 X_LAYER_RPC_URL=
-X_LAYER_CHAIN_ID=
+X_LAYER_CHAIN_ID=1952
 X_LAYER_CONTRACT_ADDRESS=
+X_LAYER_DEPLOYER_PRIVATE_KEY=
 
 # Testnet redemption
 X_LAYER_USDT_CONTRACT_ADDRESS=
 X_LAYER_TREASURY_PRIVATE_KEY=
+
+# X Layer public browser config
+NEXT_PUBLIC_X_LAYER_EXPLORER=
+NEXT_PUBLIC_X_LAYER_CONTRACT_ADDRESS=
+NEXT_PUBLIC_X_LAYER_CHAIN_ID=1952
+
+# OKX market data / Web3
+OKX_API_BASE_URL=
+OKX_WEB3_API_BASE_URL=
+OKX_API_KEY=
+OKX_API_SECRET=
+OKX_API_PASSPHRASE=
+OKX_PROJECT_ID=
+
+# News
+NEWS_RSS_FEEDS=
 ```
 
 Do not copy real values into this README.
@@ -1664,24 +1690,24 @@ X caption
 
 ------------------------------------------------------------------------
 
-# 48. Production / Netlify deployment
+# 48. Production / Vercel deployment
 
-AURA Arena is intended to run as a Next.js application on Netlify.
+AURA Arena is intended to run as a Next.js application on Vercel.
 
 Production URL:
 
 ``` text
-https://auraarena.netlify.app
+https://auraarenaokx.vercel.app
 ```
 
 For deployment:
 
 ``` text
 1. Push the project to the connected Git repository.
-2. Create/connect the Netlify site.
+2. Create/connect the Vercel project.
 3. Configure the correct build command from package.json.
-4. Configure the correct publish/runtime behavior for the Next.js app.
-5. Add production environment variables in Netlify.
+4. Configure the Next.js runtime for Vercel.
+5. Add production environment variables in Vercel.
 6. Deploy.
 7. Open the production site.
 8. Test authentication.
@@ -1692,7 +1718,7 @@ For deployment:
 
 Important:
 
-> Changing Netlify environment variables requires a new
+> Changing Vercel environment variables requires a new
 > deployment/rebuild so the server runtime receives the new
 > configuration.
 
@@ -1709,7 +1735,7 @@ localhost works
 but:
 
 ``` text
-Netlify fails
+Vercel fails
 ```
 
 do not immediately modify the database.
@@ -1719,7 +1745,7 @@ Compare:
 ``` text
 LOCAL NEXT.JS RUNTIME
 vs
-NETLIFY NEXT.JS RUNTIME
+VERCEL NEXT.JS RUNTIME
 ```
 
 Check:
@@ -1737,7 +1763,7 @@ server environment
 API route execution
 ```
 
-Then inspect the actual API response and Netlify server logs.
+Then inspect the actual API response and Vercel function logs.
 
 ------------------------------------------------------------------------
 
