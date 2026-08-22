@@ -205,11 +205,29 @@ export async function saveProfileReputation(
   if (error) throw new Error("Unable to save reputation");
 }
 
+const battleStatusRank: Record<Battle["status"], number> = {
+  WAITING: 0,
+  STARTING: 1,
+  ACTIVE: 2,
+  FINISHED: 3,
+  SETTLING: 4,
+  VERIFIED: 5,
+};
+
+function isPersistedBattleAtLeastAsNew(current: Battle, next: Battle): boolean {
+  if (current.id !== next.id) return false;
+  return battleStatusRank[current.status] >= battleStatusRank[next.status];
+}
+
 export async function persistBattle(
   supabase: SupabaseClient,
   ownerId: string,
   battle: Battle,
 ): Promise<void> {
+  const existing = await loadBattle(supabase, ownerId, battle.id);
+  if (existing && isPersistedBattleAtLeastAsNew(existing, battle) && existing.status !== battle.status) {
+    return;
+  }
   const { error } = await supabase.from("user_battles").upsert({
     id: battle.id,
     owner_id: ownerId,
@@ -244,6 +262,7 @@ export async function persistUnsettledBattle(
     .eq("id", battle.id)
     .eq("owner_id", ownerId)
     .eq("battle->>settlement_applied", "false")
+    .eq("battle->>status", battle.status)
     .select("id");
   if (error) throw new Error("Unable to persist battle");
   return (data?.length ?? 0) > 0;
@@ -322,18 +341,16 @@ export async function settleWalletBattle(
 }
 
 export async function loadBattle(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   ownerId: string,
   battleId: string,
 ): Promise<Battle | null> {
-  const { data, error } = await supabase
-    .from("user_battles")
-    .select("battle")
-    .eq("id", battleId)
-    .eq("owner_id", ownerId)
-    .maybeSingle();
+  const { data, error } = await getSupabaseAdmin().rpc("get_wallet_battle", {
+    p_user_id: ownerId,
+    p_battle_id: battleId,
+  });
   if (error) throw new Error("Unable to load battle");
-  return data?.battle ? normalizeBattleLeverage(normalizeBattleTiming(data.battle as Battle & { duration_minutes?: number })) : null;
+  return data ? normalizeBattleLeverage(normalizeBattleTiming(data as Battle & { duration_minutes?: number })) : null;
 }
 
 export async function listBattlesForUser(
