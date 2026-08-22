@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Battle } from "../types";
-import { saveBattle } from "../store";
+import { getBattle, saveBattle } from "../store";
+import { chooseFreshBattle } from "./state";
 import { loadBattle } from "../supabase/aura";
 import { normalizeBattleLeverage } from "./leverage";
 
@@ -33,8 +34,12 @@ export async function loadAuthoritativeBattle(
 ): Promise<Battle | null> {
   const persisted = await loadBattle(supabase, userId, battleId);
   if (!persisted) return null;
-  // Cache refresh only. Nothing downstream reads this back as state.
+  // Cache refresh only. If this server has already observed a later lifecycle
+  // state, keep that fresher snapshot so a stale read replica cannot move the
+  // battle backwards (for example ACTIVE back to WAITING immediately after
+  // /start persisted the transition).
   const normalized = normalizeBattleLeverage(persisted);
-  saveBattle(normalized);
-  return normalized;
+  const fresh = chooseFreshBattle(getBattle(normalized.id), normalized);
+  saveBattle(fresh);
+  return fresh;
 }
