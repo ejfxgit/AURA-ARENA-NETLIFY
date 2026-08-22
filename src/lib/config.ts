@@ -1,6 +1,37 @@
 // Server-only env access. Browser-safe values live in public-config.ts so this
 // module can never be pulled into a client bundle by a public UI component.
 
+function isPlaceholderSupabaseUrl(value: string): boolean {
+  return /your-project\.supabase\.co/i.test(value) || /<supabase-project-ref>/i.test(value);
+}
+
+export function supabaseConfigError(kind: "public" | "admin" = "admin"): string | null {
+  const missing: string[] = [];
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+  const secret = process.env.SUPABASE_SECRET_KEY || "";
+  if (!url) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!publishable) missing.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+  if (kind === "admin" && !secret) missing.push("SUPABASE_SECRET_KEY");
+  if (missing.length) return `Supabase is not configured. Set ${missing.join(" and ")}.`;
+  if (isPlaceholderSupabaseUrl(url)) return "NEXT_PUBLIC_SUPABASE_URL is still a placeholder. Set the real Supabase project URL.";
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".supabase.co")) {
+      return "NEXT_PUBLIC_SUPABASE_URL must be a real https://*.supabase.co project URL.";
+    }
+  } catch {
+    return "NEXT_PUBLIC_SUPABASE_URL is not a valid URL.";
+  }
+  if (!/^sb_(publishable|anon)_/.test(publishable) && !/^eyJ/.test(publishable)) {
+    return "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not a recognizable Supabase publishable/anon key.";
+  }
+  if (kind === "admin" && !/^sb_secret_/.test(secret) && !/^eyJ/.test(secret)) {
+    return "SUPABASE_SECRET_KEY is not a recognizable Supabase secret/service-role key.";
+  }
+  return null;
+}
+
 export const serverConfig = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   supabaseSecret: process.env.SUPABASE_SECRET_KEY || "",
@@ -51,7 +82,7 @@ export function hasOpenRouter() {
 }
 
 export function hasSupabase() {
-  return serverConfig.supabaseUrl.length > 0 && serverConfig.supabaseSecret.length > 0;
+  return supabaseConfigError("admin") === null;
 }
 
 export function hasXLayerSigner() {

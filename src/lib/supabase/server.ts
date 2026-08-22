@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { supabaseConfigError } from "@/lib/config";
 
 type AuthenticatedSupabase =
   | { ok: true; supabase: SupabaseClient; user: User }
@@ -7,8 +8,9 @@ type AuthenticatedSupabase =
 export async function getAuthenticatedSupabase(req: Request): Promise<AuthenticatedSupabase> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-  if (!url || !key) {
-    return { ok: false, error: "Supabase accounts are not configured", status: 503 };
+  const configError = supabaseConfigError("public");
+  if (configError) {
+    return { ok: false, error: configError, status: 503 };
   }
 
   const authorization = req.headers.get("authorization") || "";
@@ -33,7 +35,8 @@ export async function getAuthenticatedSupabase(req: Request): Promise<Authentica
 export function getSupabaseAdmin(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const key = process.env.SUPABASE_SECRET_KEY || "";
-  if (!url || !key) throw new Error("Supabase account administration is not configured");
+  const configError = supabaseConfigError("admin");
+  if (configError) throw new Error(configError);
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
