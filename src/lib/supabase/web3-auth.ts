@@ -72,18 +72,49 @@ async function preferredSiweAddress(walletAddress: string): Promise<string> {
   return existingClaim?.toLowerCase() === walletAddress ? existingClaim : walletAddress;
 }
 
-function resolveSiweOrigin(requestUrl: string): URL {
+function requestOriginFromHeaders(requestUrl: string, headers?: Headers): URL {
   const request = new URL(requestUrl);
-  const configured = new URL(process.env.NEXT_PUBLIC_SITE_URL?.trim() || PRODUCTION_SITE_URL);
-  const localHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+  const forwardedHost = headers?.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = headers?.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  if (forwardedHost && forwardedProto) return new URL(`${forwardedProto}://${forwardedHost}`);
+  if (forwardedHost) return new URL(`${request.protocol}//${forwardedHost}`);
+  return new URL(request.origin);
+}
 
-  // Local development signs for the actual dev-server origin. All deployed
-  // environments sign for the canonical configured site, preventing Vercel
-  // deployment-host / browser-host drift from producing Supabase SIWE URI
-  // mismatches. This is not an arbitrary-origin allow-list: only local loopback
-  // can use the request host.
-  if (localHosts.has(request.hostname)) return new URL(request.origin);
-  return new URL(configured.origin);
+function isLocalOrigin(origin: URL): boolean {
+  return ["localhost", "127.0.0.1", "0.0.0.0"].includes(origin.hostname);
+}
+
+function resolveSiweOrigin(requestUrl: string, headers?: Headers): URL {
+  const requestOrigin = requestOriginFromHeaders(requestUrl, headers);
+
+  // Local development signs for the actual dev-server origin. Every non-local
+  // deployment signs for the production canonical origin. This deliberately
+  // ignores NEXT_PUBLIC_SITE_URL / VERCEL_URL in production so a stale or
+  // deployment-specific host can never create a SIWE message that Supabase later
+  // rejects as being for another app.
+  if (isLocalOrigin(requestOrigin)) return requestOrigin;
+  return new URL(PRODUCTION_SITE_URL);
+}
+
+function assertAllowedSiweOrigin(message: string): void {
+  const domain = message.match(/^([^\n]+) wants you to sign in with your Ethereum account:/)?.[1];
+  const uri = message.match(/^URI: (.+)$/m)?.[1];
+  const expected = new URL(PRODUCTION_SITE_URL);
+  let parsedUri: URL | null = null;
+  try {
+    parsedUri = uri ? new URL(uri) : null;
+  } catch {
+    parsedUri = null;
+  }
+  const isProduction = domain === expected.host && uri === expected.origin;
+  const isLocal = parsedUri && domain === parsedUri.host && isLocalOrigin(parsedUri);
+  if (!isProduction && !isLocal) {
+    throw new WalletAuthError(
+      "Signed Ethereum message is using URI which is not allowed on this server, message was signed for another app",
+      401,
+    );
+  }
 }
 
 function buildSiweMessage(
@@ -96,7 +127,7 @@ function buildSiweMessage(
   return `${origin.host} wants you to sign in with your Ethereum account:\n${address}\n\n${STATEMENT}\n\nURI: ${origin.origin}\nVersion: 1\nChain ID: ${CHAIN_ID}\nNonce: ${nonce}\nIssued At: ${issuedAt.toISOString()}\nExpiration Time: ${expirationTime.toISOString()}`;
 }
 
-export async function createWalletAuthChallenge(walletAddress: string, requestUrl: string) {
+export async function createWalletAuthChallenge(walletAddress: string, requestUrl: string, headers?: Headers) {
   if (!isAddress(walletAddress)) throw new WalletAuthError("Invalid wallet address");
   const normalizedAddress = walletAddress.toLowerCase();
   const siweAddress = await preferredSiweAddress(normalizedAddress);
@@ -104,7 +135,7 @@ export async function createWalletAuthChallenge(walletAddress: string, requestUr
   const expirationTime = new Date(issuedAt.getTime() + CHALLENGE_TTL_MS);
   const message = buildSiweMessage(
     siweAddress,
-    resolveSiweOrigin(requestUrl),
+    resolveSiweOrigin(requestUrl, headers),
     randomBytes(16).toString("hex"),
     issuedAt,
     expirationTime,
@@ -135,6 +166,7 @@ export async function verifyWalletAuthChallenge(params: {
     throw new WalletAuthError("Wallet challenge does not match the connected wallet", 401);
   }
   if (Date.parse(payload.expiresAt) <= Date.now()) throw new WalletAuthError("Wallet challenge expired", 401);
+  assertAllowedSiweOrigin(params.message);
 
   let recoveredAddress: string;
   try {
