@@ -1,6 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { createClient, type Session } from "@supabase/supabase-js";
 import { isAddress, recoverMessageAddress, type Hex } from "viem";
+import { supabaseConfigError } from "@/lib/config";
+import { PRODUCTION_SITE_URL } from "@/lib/public-config";
 import { getSupabaseAdmin } from "./server";
 import { walletAddressClaimFromUser, walletAddressFromUser } from "./wallet-identity";
 
@@ -23,8 +25,9 @@ export class WalletAuthError extends Error {
 }
 
 function challengeSecret(): string {
+  const configError = supabaseConfigError("admin");
+  if (configError) throw new WalletAuthError(configError, 503);
   const secret = process.env.SUPABASE_SECRET_KEY || "";
-  if (!secret) throw new WalletAuthError("Wallet authentication is not configured", 503);
   return secret;
 }
 
@@ -69,6 +72,20 @@ async function preferredSiweAddress(walletAddress: string): Promise<string> {
   return existingClaim?.toLowerCase() === walletAddress ? existingClaim : walletAddress;
 }
 
+function resolveSiweOrigin(requestUrl: string): URL {
+  const request = new URL(requestUrl);
+  const configured = new URL(process.env.NEXT_PUBLIC_SITE_URL?.trim() || PRODUCTION_SITE_URL);
+  const localHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+
+  // Local development signs for the actual dev-server origin. All deployed
+  // environments sign for the canonical configured site, preventing Vercel
+  // deployment-host / browser-host drift from producing Supabase SIWE URI
+  // mismatches. This is not an arbitrary-origin allow-list: only local loopback
+  // can use the request host.
+  if (localHosts.has(request.hostname)) return new URL(request.origin);
+  return new URL(configured.origin);
+}
+
 function buildSiweMessage(
   address: string,
   origin: URL,
@@ -87,7 +104,7 @@ export async function createWalletAuthChallenge(walletAddress: string, requestUr
   const expirationTime = new Date(issuedAt.getTime() + CHALLENGE_TTL_MS);
   const message = buildSiweMessage(
     siweAddress,
-    new URL(requestUrl),
+    resolveSiweOrigin(requestUrl),
     randomBytes(16).toString("hex"),
     issuedAt,
     expirationTime,
@@ -131,7 +148,8 @@ export async function verifyWalletAuthChallenge(params: {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-  if (!url || !key) throw new WalletAuthError("Supabase accounts are not configured", 503);
+  const configError = supabaseConfigError("public");
+  if (configError) throw new WalletAuthError(configError, 503);
   const supabase = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });

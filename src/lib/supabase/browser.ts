@@ -8,6 +8,7 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   if (browserClient !== undefined) return browserClient;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-  browserClient = url && key ? createClient(url, key) : null;
+  const placeholder = /your-project\.supabase\.co/i.test(url) || /<supabase-project-ref>/i.test(url);
+  browserClient = url && key && !placeholder ? createClient(url, key) : null;
   return browserClient;
 }
