@@ -6,9 +6,10 @@ import { fmtAura } from "@/lib/aura-economy";
 import { cn, formatPair, fmtPrice } from "@/lib/utils";
 import type { Battle } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { publicConfig } from "@/lib/public-config";
 
 /** The only URL that ever appears in any share output. No paths, no battle IDs. */
-const SITE_URL = "https://auraarenaokx.netlify.app";
+const SITE_URL = publicConfig.siteUrl;
 
 export function ShareCard({ battle }: { battle: Battle }) {
   const humanWon = battle.winner === "HUMAN";

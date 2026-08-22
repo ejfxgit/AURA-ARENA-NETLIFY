@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
-const BASE = process.argv[2] || "http://localhost:3000";
+const BASE = process.argv[2] || "https://auraarenaokx.vercel.app";
 
 const env = Object.fromEntries(
   readFileSync(new URL("../.env.local", import.meta.url), "utf8")

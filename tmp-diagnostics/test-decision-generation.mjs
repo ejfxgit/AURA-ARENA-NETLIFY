@@ -20,7 +20,7 @@ const env = Object.fromEntries(
 const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const SUPABASE_SECRET = env.SUPABASE_SECRET_KEY;
-const DEV_SERVER = "http://localhost:3000";
+const DEV_SERVER = "https://auraarenaokx.vercel.app";
 const AGENTS = ["volt", "mira", "quanta", "nova", "atlas", "rift"];
 
 // Step 1: Create a temporary user via Supabase auth

@@ -1,5 +1,7 @@
 import { serverConfig, hasOpenRouter } from "../config";
 
+const PRODUCTION_SITE_URL = "https://auraarenaokx.vercel.app";
+
 interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -38,7 +40,7 @@ async function post(messages: ChatMessage[], opts: ChatOptions): Promise<Respons
       headers: {
         Authorization: `Bearer ${serverConfig.openrouterKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://auraarenaokx.netlify.app",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || PRODUCTION_SITE_URL,
         "X-Title": "AURA Arena",
       },
       body: JSON.stringify({
