@@ -35,11 +35,16 @@ const walletVerifySchema = z.object({
   signature: z.string().refine((value) => isHex(value), "Invalid wallet signature"),
 });
 
+function isSecureRequest(req: NextRequest): boolean {
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  return forwardedProto ? forwardedProto === "https" : new URL(req.url).protocol === "https:";
+}
+
 function clearWalletChallenge(response: NextResponse, req: NextRequest) {
   response.cookies.set(WALLET_CHALLENGE_COOKIE, "", {
     httpOnly: true,
     sameSite: "strict",
-    secure: new URL(req.url).protocol === "https:",
+    secure: isSecureRequest(req),
     path: "/",
     maxAge: 0,
   });
@@ -53,16 +58,19 @@ export async function POST(req: NextRequest) {
     const parsed = walletChallengeSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Invalid wallet challenge request" }, { status: 400 });
     try {
-      const challenge = await createWalletAuthChallenge(parsed.data.walletAddress, req.url);
-      const response = NextResponse.json({
-        walletAddress: challenge.walletAddress,
-        message: challenge.message,
-        expiresAt: challenge.expiresAt,
-      });
+      const challenge = await createWalletAuthChallenge(parsed.data.walletAddress, req.url, req.headers);
+      const response = NextResponse.json(
+        {
+          walletAddress: challenge.walletAddress,
+          message: challenge.message,
+          expiresAt: challenge.expiresAt,
+        },
+        { headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
       response.cookies.set(WALLET_CHALLENGE_COOKIE, challenge.cookieValue, {
         httpOnly: true,
         sameSite: "strict",
-        secure: new URL(req.url).protocol === "https:",
+        secure: isSecureRequest(req),
         path: "/",
         maxAge: 300,
       });
