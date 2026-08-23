@@ -84,6 +84,18 @@ export default function BattlePage() {
   const finishRequested = useRef(false);
   const latestBattleRef = useRef<Battle | null>(null);
 
+  // Ref that always holds the current battle id. Stale closures (old finish
+  // callbacks still referenced by timeouts or effects) compare against this to
+  // ensure they never call /finish for a different battle.
+  const currentBattleIdRef = useRef(id);
+  // Timestamp (ms) when the battle first appeared as ACTIVE on the client.
+  // finish() refuses to run within a short grace period after this so that a
+  // stale callback or effect cannot call /finish in the same tick as /start.
+  const battleActivatedAtRef = useRef<number | null>(null);
+
+  // Keep the ref in sync on every render so stale closures see the current id.
+  currentBattleIdRef.current = id;
+
   const wallet = useWallet();
   const battleAsset = battle?.asset;
   const battleStatus = battle?.status;
@@ -130,6 +142,29 @@ export default function BattlePage() {
     load();
   }, [load, wallet, wallet.initializing, wallet.ready]);
 
+  // When the battle id changes (navigating between battles), purge stale
+  // settlement state so a retry armed for the old battle cannot fire finish()
+  // for the new one.
+  useEffect(() => {
+    finishRequested.current = false;
+    battleActivatedAtRef.current = null;
+    setSettleError(null);
+    setSettleAttempt(0);
+    setFinishing(false);
+  }, [id]);
+
+  // Record when the battle first transitions to ACTIVE so finish() can enforce
+  // a minimum active duration before settlement is allowed.
+  useEffect(() => {
+    if (battleStatus === "ACTIVE") {
+      if (battleActivatedAtRef.current === null) {
+        battleActivatedAtRef.current = Date.now();
+      }
+    } else {
+      battleActivatedAtRef.current = null;
+    }
+  }, [battleStatus]);
+
   // Server poll for battle STATE only (status, challenges, settlement). The
   // price and P&L the user watches come from the websocket above, not from here.
   useEffect(() => {
@@ -160,6 +195,16 @@ export default function BattlePage() {
   }, [battleStartedAt, battleStatus, battleExpiresAtMs]);
 
   const finish = useCallback(() => {
+    // A stale callback from a previous battle must never call /finish.
+    if (currentBattleIdRef.current !== id) return;
+    // Do not settle a battle that just transitioned to ACTIVE — a stale
+    // effect, old timeout, or React state transition may have armed finish()
+    // before the persisted expires_at has genuinely elapsed.
+    if (
+      battleActivatedAtRef.current !== null &&
+      Date.now() - battleActivatedAtRef.current < 1500
+    )
+      return;
     if (finishRequested.current) return;
     finishRequested.current = true;
     setFinishing(true);
