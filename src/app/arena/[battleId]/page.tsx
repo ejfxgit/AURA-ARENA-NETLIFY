@@ -66,6 +66,16 @@ const BATTLE_BAR = "1m" as const;
 export default function BattlePage() {
   const params = useParams<{ battleId: string }>();
   const id = params.battleId;
+  // Every asynchronous callback is tied to the battle instance it was created for.
+  // When the route/battle changes (or a new start begins), older callbacks become
+  // invalid and are not allowed to mutate the new battle or call /finish for it.
+  const currentBattleIdRef = useRef(id);
+  const lifecycleTokenRef = useRef(0);
+  const battleRef = useRef<Battle | null>(null);
+  if (currentBattleIdRef.current !== id) {
+    currentBattleIdRef.current = id;
+    lifecycleTokenRef.current += 1;
+  }
 
   const [battle, setBattle] = useState<Battle | null>(null);
   const [priceStale, setPriceStale] = useState(false);
@@ -81,6 +91,9 @@ export default function BattlePage() {
   const [settleAttempt, setSettleAttempt] = useState(0);
   const [verifying, setVerifying] = useState(false);
   const finishRequested = useRef(false);
+
+  // Always expose the latest rendered battle to asynchronous callbacks.
+  battleRef.current = battle;
 
   const wallet = useWallet();
   const battleAsset = battle?.asset;
@@ -104,12 +117,32 @@ export default function BattlePage() {
 
   const load = useCallback(() => {
     if (!wallet.ready) return;
-    api<{ battle: Battle; priceStale?: boolean }>(`/api/battles/${id}`)
+
+    const requestedId = id;
+    const requestedToken = lifecycleTokenRef.current;
+
+    api<{ battle: Battle; priceStale?: boolean }>(`/api/battles/${requestedId}`)
       .then((d) => {
+        // A request started for an older battle is allowed to finish, but its
+        // response must never become state for the current battle.
+        if (
+          currentBattleIdRef.current !== requestedId ||
+          lifecycleTokenRef.current !== requestedToken
+        ) {
+          return;
+        }
         setBattle(d.battle);
         setPriceStale(Boolean(d.priceStale));
       })
-      .catch((e) => setError(e.message || "Battle not found."));
+      .catch((e) => {
+        if (
+          currentBattleIdRef.current !== requestedId ||
+          lifecycleTokenRef.current !== requestedToken
+        ) {
+          return;
+        }
+        setError(e.message || "Battle not found.");
+      });
   }, [id, wallet.ready]);
 
   // Initial load.
@@ -136,35 +169,103 @@ export default function BattlePage() {
     return () => clearInterval(iv);
   }, [battleStatus, load]);
 
-  // Countdown timer, derived from the persisted server expiration timestamp.
+  // Countdown is derived only from the CURRENT battle's persisted expires_at.
+  // It is never a fixed-duration timeout. The token also prevents an old timer
+  // from updating the new battle after navigation/start transitions.
   useEffect(() => {
-    if (!battleStartedAt || battleExpiresAtMs === null || battleStatus !== "ACTIVE") {
-      if (battleStatus && battleStatus !== "ACTIVE") setRemaining(null);
+    const token = lifecycleTokenRef.current;
+    const battleId = id;
+
+    if (
+      currentBattleIdRef.current !== battleId ||
+      !battleStartedAt ||
+      battleExpiresAtMs === null ||
+      battleStatus !== "ACTIVE"
+    ) {
+      setRemaining(null);
       return;
     }
+
     const tick = () => {
+      if (
+        currentBattleIdRef.current !== battleId ||
+        lifecycleTokenRef.current !== token
+      ) {
+        return;
+      }
       const left = Math.max(0, Math.ceil((battleExpiresAtMs - Date.now()) / 1000));
       setRemaining(left);
     };
+
     tick();
     const iv = setInterval(tick, 250);
     return () => clearInterval(iv);
-  }, [battleStartedAt, battleStatus, battleExpiresAtMs]);
+  }, [id, battleStartedAt, battleStatus, battleExpiresAtMs]);
 
   const finish = useCallback(() => {
+    const requestedId = id;
+    const requestedToken = lifecycleTokenRef.current;
+    const current = battleRef.current;
+
+    // Never allow a callback created for an old battle to finish the current one.
+    if (
+      currentBattleIdRef.current !== requestedId ||
+      !current ||
+      current.id !== requestedId ||
+      lifecycleTokenRef.current !== requestedToken ||
+      current.status !== "ACTIVE"
+    ) {
+      return;
+    }
+
+    // The browser may decide it is time to ask for settlement, but the server
+    // remains the authority. Do not even send an early request when the
+    // persisted expiration is still in the future on this client.
+    const expiresAtMs = battleExpiresAt(current);
+    if (expiresAtMs === null || expiresAtMs > Date.now()) {
+      return;
+    }
+
     if (finishRequested.current) return;
     finishRequested.current = true;
     setFinishing(true);
-    api<{ battle: Battle }>(`/api/battles/${id}/finish`, { method: "POST" })
+
+    api<{ battle: Battle }>(`/api/battles/${requestedId}/finish`, { method: "POST" })
       .then((d) => {
+        if (
+          currentBattleIdRef.current !== requestedId ||
+          lifecycleTokenRef.current !== requestedToken
+        ) {
+          return;
+        }
         setBattle(d.battle);
         setSettleError(null);
         void wallet.refreshAccount();
       })
       .catch((e) => {
-        // Settlement requires a real exit price, so the server refuses when the
-        // OKX feed is down. Release the guard and record the attempt so the
-        // effect below can try again instead of leaving the battle unsettled.
+        if (
+          currentBattleIdRef.current !== requestedId ||
+          lifecycleTokenRef.current !== requestedToken
+        ) {
+          return;
+        }
+
+        const status =
+          e instanceof ApiError
+            ? (e as ApiError & { status?: number }).status
+            : undefined;
+
+        // 409 means the canonical server says this battle is not eligible to
+        // finish yet. Do not retry immediately and do not manufacture a result.
+        if (status === 409) {
+          finishRequested.current = false;
+          setSettleError(null);
+          load();
+          return;
+        }
+
+        // Other failures (for example a temporarily unavailable market exit
+        // price) can be retried, but only for this same battle/token.
         finishRequested.current = false;
         setSettleError(
           e instanceof ApiError
@@ -173,33 +274,86 @@ export default function BattlePage() {
         );
         setSettleAttempt((n) => n + 1);
       })
-      .finally(() => setFinishing(false));
-  }, [id, wallet]);
+      .finally(() => {
+        if (
+          currentBattleIdRef.current === requestedId &&
+          lifecycleTokenRef.current === requestedToken
+        ) {
+          setFinishing(false);
+        }
+      });
+  }, [id, wallet, load]);
 
-  // Retry settlement while the market feed is unavailable. `settleAttempt`
-  // changes on every failure, which is what re-arms this timer.
+  // Clear timer/settlement UI whenever the route changes. The lifecycle token
+  // itself is advanced synchronously above during render, so the initial load
+  // request is not accidentally invalidated by this effect.
+  useEffect(() => {
+    finishRequested.current = false;
+    setRemaining(null);
+    setSettleError(null);
+    setSettleAttempt(0);
+    setFinishing(false);
+  }, [id]);
+
+  // Retry settlement only after a genuine server-side settlement failure.
+  // A 409 early-finish response is handled without creating a retry loop.
   useEffect(() => {
     if (!settleError || battleStatus !== "ACTIVE") return;
-    const t = setTimeout(finish, 5000);
+    const token = lifecycleTokenRef.current;
+    const battleId = id;
+    const t = setTimeout(() => {
+      if (
+        currentBattleIdRef.current === battleId &&
+        lifecycleTokenRef.current === token
+      ) {
+        finish();
+      }
+    }, 5000);
     return () => clearTimeout(t);
-  }, [settleError, settleAttempt, battleStatus, finish]);
+  }, [settleError, settleAttempt, battleStatus, id, finish]);
 
-  // Auto-settle when the clock runs out.
+  // Auto-settle only when the current persisted expiration has actually passed.
   useEffect(() => {
+    if (battleStatus !== "ACTIVE" || remaining !== 0) return;
+
+    const current = battleRef.current;
     if (
-      battle?.status === "ACTIVE" &&
-      remaining === 0 &&
-      !finishRequested.current
+      !current ||
+      current.id !== id ||
+      current.status !== "ACTIVE" ||
+      battleExpiresAt(current) === null ||
+      battleExpiresAt(current)! > Date.now()
     ) {
-      finish();
+      return;
     }
-  }, [battle?.status, remaining, finish]);
+
+    finish();
+  }, [id, battleStatus, remaining, finish]);
 
   const start = useCallback(() => {
-    api<{ battle: Battle }>(`/api/battles/${id}/start`, { method: "POST" })
+    const requestedId = id;
+
+    if (currentBattleIdRef.current !== requestedId) return;
+
+    // Starting a battle is a new lifecycle generation. Any finish timeout,
+    // retry, poll response, or callback from the pre-start state is invalidated.
+    lifecycleTokenRef.current += 1;
+    const requestedToken = lifecycleTokenRef.current;
+    finishRequested.current = false;
+    setFinishing(false);
+    setRemaining(null);
+    setSettleError(null);
+    setSettleAttempt(0);
+
+    api<{ battle: Battle }>(`/api/battles/${requestedId}/start`, { method: "POST" })
       .then((d) => {
+        if (
+          currentBattleIdRef.current !== requestedId ||
+          lifecycleTokenRef.current !== requestedToken
+        ) {
+          return;
+        }
         setBattle(d.battle);
-        finishRequested.current = false;
         void wallet.refreshAccount();
       })
       .catch(() => {});
@@ -207,29 +361,70 @@ export default function BattlePage() {
 
   const submitChallenge = useCallback(() => {
     if (!message.trim() || challenging) return;
+
+    const requestedId = id;
+    const requestedToken = lifecycleTokenRef.current;
     setChallenging(true);
+
     api<{ battle: Battle; recalculation: Recalculation }>("/api/challenges", {
       method: "POST",
-      body: { battleId: id, message: message.trim() },
+      body: { battleId: requestedId, message: message.trim() },
     })
       .then((d) => {
+        if (
+          currentBattleIdRef.current !== requestedId ||
+          lifecycleTokenRef.current !== requestedToken
+        ) {
+          return;
+        }
         setBattle(d.battle);
         setLastRecalc(d.recalculation);
         setMessage("");
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setChallenging(false));
+      .catch((e) => {
+        if (
+          currentBattleIdRef.current === requestedId &&
+          lifecycleTokenRef.current === requestedToken
+        ) {
+          setError(e.message);
+        }
+      })
+      .finally(() => {
+        if (
+          currentBattleIdRef.current === requestedId &&
+          lifecycleTokenRef.current === requestedToken
+        ) {
+          setChallenging(false);
+        }
+      });
   }, [id, message, challenging]);
 
   const verify = useCallback(() => {
+    const requestedId = id;
+    const requestedToken = lifecycleTokenRef.current;
     setVerifying(true);
+
     api<{ battle: Battle }>("/api/onchain/finalize", {
       method: "POST",
-      body: { battleId: id },
+      body: { battleId: requestedId },
     })
-      .then((d) => setBattle(d.battle))
+      .then((d) => {
+        if (
+          currentBattleIdRef.current === requestedId &&
+          lifecycleTokenRef.current === requestedToken
+        ) {
+          setBattle(d.battle);
+        }
+      })
       .catch(() => {})
-      .finally(() => setVerifying(false));
+      .finally(() => {
+        if (
+          currentBattleIdRef.current === requestedId &&
+          lifecycleTokenRef.current === requestedToken
+        ) {
+          setVerifying(false);
+        }
+      });
   }, [id]);
 
   // ---- live agent signal + live position ----
