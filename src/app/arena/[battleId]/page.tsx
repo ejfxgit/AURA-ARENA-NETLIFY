@@ -58,7 +58,6 @@ import {
   type LiveSignal,
 } from "@/lib/market/live-signal";
 import type { AgentId, Battle, Recalculation } from "@/lib/types";
-import { chooseFreshBattle } from "@/lib/battle/state";
 import { battleExpiresAt } from "@/lib/battle/timing";
 
 /** The battle's OKX instrument id. `asset` may be a bare base currency. */
@@ -82,24 +81,6 @@ export default function BattlePage() {
   const [settleAttempt, setSettleAttempt] = useState(0);
   const [verifying, setVerifying] = useState(false);
   const finishRequested = useRef(false);
-  const latestBattleRef = useRef<Battle | null>(null);
-  const battleGenerationRef = useRef(0);
-  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearFinishTimer = useCallback(() => {
-    if (finishTimerRef.current !== null) {
-      clearTimeout(finishTimerRef.current);
-      finishTimerRef.current = null;
-    }
-  }, []);
-
-  // Ref that always holds the current battle id. Stale closures (old finish
-  // callbacks still referenced by timeouts or effects) compare against this to
-  // ensure they never call /finish for a different battle.
-  const currentBattleIdRef = useRef(id);
-
-  // Keep the ref in sync on every render so stale closures see the current id.
-  currentBattleIdRef.current = id;
 
   const wallet = useWallet();
   const battleAsset = battle?.asset;
@@ -121,36 +102,15 @@ export default function BattlePage() {
   const { candles, error: candleError } = useLiveCandles(instId, BATTLE_BAR, 200);
   const livePrice = useLivePrice(instId, BATTLE_BAR);
 
-  const acceptBattle = useCallback((next: Battle) => {
-    const current = latestBattleRef.current;
-    const fresh = chooseFreshBattle(current, next);
-    if (!fresh) return;
-
-    const currentTimingKey = current
-      ? `${current.id}:${current.started_at ?? ""}:${current.expires_at ?? ""}`
-      : null;
-    const nextTimingKey = `${fresh.id}:${fresh.started_at ?? ""}:${fresh.expires_at ?? ""}`;
-
-    if (currentTimingKey !== nextTimingKey || current?.status !== fresh.status) {
-      battleGenerationRef.current += 1;
-      clearFinishTimer();
-      finishRequested.current = false;
-    }
-
-    latestBattleRef.current = fresh;
-    setBattle(fresh);
-  }, [clearFinishTimer]);
-
   const load = useCallback(() => {
     if (!wallet.ready) return;
     api<{ battle: Battle; priceStale?: boolean }>(`/api/battles/${id}`)
       .then((d) => {
-        if (currentBattleIdRef.current !== id || d.battle.id !== id) return;
-        acceptBattle(d.battle);
+        setBattle(d.battle);
         setPriceStale(Boolean(d.priceStale));
       })
       .catch((e) => setError(e.message || "Battle not found."));
-  }, [acceptBattle, id, wallet.ready]);
+  }, [id, wallet.ready]);
 
   // Initial load.
   useEffect(() => {
@@ -161,21 +121,6 @@ export default function BattlePage() {
     }
     load();
   }, [load, wallet, wallet.initializing, wallet.ready]);
-
-  // When the battle id changes (navigating between battles), purge stale
-  // settlement state so a retry armed for the old battle cannot fire finish()
-  // for the new one.
-  useEffect(() => {
-    battleGenerationRef.current += 1;
-    clearFinishTimer();
-    finishRequested.current = false;
-    latestBattleRef.current = null;
-    setBattle(null);
-    setRemaining(null);
-    setSettleError(null);
-    setSettleAttempt(0);
-    setFinishing(false);
-  }, [clearFinishTimer, id]);
 
   // Server poll for battle STATE only (status, challenges, settlement). The
   // price and P&L the user watches come from the websocket above, not from here.
@@ -193,13 +138,7 @@ export default function BattlePage() {
 
   // Countdown timer, derived from the persisted server expiration timestamp.
   useEffect(() => {
-    if (
-      currentBattleIdRef.current !== id ||
-      latestBattleRef.current?.id !== id ||
-      !battleStartedAt ||
-      battleExpiresAtMs === null ||
-      battleStatus !== "ACTIVE"
-    ) {
+    if (!battleStartedAt || battleExpiresAtMs === null || battleStatus !== "ACTIVE") {
       if (battleStatus && battleStatus !== "ACTIVE") setRemaining(null);
       return;
     }
@@ -210,43 +149,22 @@ export default function BattlePage() {
     tick();
     const iv = setInterval(tick, 250);
     return () => clearInterval(iv);
-  }, [battleStartedAt, battleStatus, battleExpiresAtMs, id]);
+  }, [battleStartedAt, battleStatus, battleExpiresAtMs]);
 
-  const finish = useCallback((expectedGeneration = battleGenerationRef.current) => {
-    // A callback from an older battle instance must never settle the current one.
-    if (expectedGeneration !== battleGenerationRef.current) return;
-    if (currentBattleIdRef.current !== id) return;
-
-    const canonical = latestBattleRef.current;
-    if (!canonical || canonical.id !== id || canonical.status !== "ACTIVE") return;
-
-    // The browser is allowed to request finish only after the persisted
-    // expiration timestamp has actually elapsed. This is a client-side safety
-    // gate; the server performs the authoritative check again.
-    const expiresAtMs = battleExpiresAt(canonical);
-    if (expiresAtMs === null) return;
-    if (Date.now() < expiresAtMs) {
-      clearFinishTimer();
-      finishTimerRef.current = setTimeout(() => {
-        finish(expectedGeneration);
-      }, Math.max(50, expiresAtMs - Date.now() + 25));
-      return;
-    }
-
+  const finish = useCallback(() => {
     if (finishRequested.current) return;
     finishRequested.current = true;
-    clearFinishTimer();
     setFinishing(true);
-
     api<{ battle: Battle }>(`/api/battles/${id}/finish`, { method: "POST" })
       .then((d) => {
-        if (expectedGeneration !== battleGenerationRef.current) return;
-        acceptBattle(d.battle);
+        setBattle(d.battle);
         setSettleError(null);
         void wallet.refreshAccount();
       })
       .catch((e) => {
-        if (expectedGeneration !== battleGenerationRef.current) return;
+        // Settlement requires a real exit price, so the server refuses when the
+        // OKX feed is down. Release the guard and record the attempt so the
+        // effect below can try again instead of leaving the battle unsettled.
         finishRequested.current = false;
         setSettleError(
           e instanceof ApiError
@@ -255,65 +173,37 @@ export default function BattlePage() {
         );
         setSettleAttempt((n) => n + 1);
       })
-      .finally(() => {
-        if (expectedGeneration === battleGenerationRef.current) setFinishing(false);
-      });
-  }, [acceptBattle, clearFinishTimer, id, wallet]);
+      .finally(() => setFinishing(false));
+  }, [id, wallet]);
 
-  // Retry only after the canonical persisted expiry. A temporary market outage
-  // may delay settlement, but it must never move the finish request earlier.
+  // Retry settlement while the market feed is unavailable. `settleAttempt`
+  // changes on every failure, which is what re-arms this timer.
   useEffect(() => {
     if (!settleError || battleStatus !== "ACTIVE") return;
-    const generation = battleGenerationRef.current;
-    const canonical = latestBattleRef.current;
-    const expiresAtMs = canonical ? battleExpiresAt(canonical) : null;
-    if (expiresAtMs === null) return;
+    const t = setTimeout(finish, 5000);
+    return () => clearTimeout(t);
+  }, [settleError, settleAttempt, battleStatus, finish]);
 
-    clearFinishTimer();
-    const delay = Math.max(5000, expiresAtMs - Date.now() + 25);
-    finishTimerRef.current = setTimeout(() => finish(generation), delay);
-    return clearFinishTimer;
-  }, [battleStatus, clearFinishTimer, finish, settleAttempt, settleError]);
-
-  // Arm one expiry-driven settlement timer from the canonical persisted
-  // expires_at. The countdown below is display-only and can never trigger
-  // settlement by itself.
+  // Auto-settle when the clock runs out.
   useEffect(() => {
-    if (battleStatus !== "ACTIVE") return;
-    const canonical = latestBattleRef.current;
-    const expiresAtMs = canonical ? battleExpiresAt(canonical) : null;
-    if (expiresAtMs === null) return;
-
-    const generation = battleGenerationRef.current;
-    clearFinishTimer();
-    finishTimerRef.current = setTimeout(() => finish(generation), Math.max(0, expiresAtMs - Date.now() + 25));
-    return clearFinishTimer;
-  }, [battleExpiresAtMs, battleStatus, clearFinishTimer, finish]);
+    if (
+      battle?.status === "ACTIVE" &&
+      remaining === 0 &&
+      !finishRequested.current
+    ) {
+      finish();
+    }
+  }, [battle?.status, remaining, finish]);
 
   const start = useCallback(() => {
-    battleGenerationRef.current += 1;
-    clearFinishTimer();
-    finishRequested.current = false;
-    setRemaining(null);
-    setSettleError(null);
-
     api<{ battle: Battle }>(`/api/battles/${id}/start`, { method: "POST" })
       .then((d) => {
-        acceptBattle(d.battle);
+        setBattle(d.battle);
         finishRequested.current = false;
-        setError(null);
         void wallet.refreshAccount();
       })
-      .catch((e) => {
-        setError(
-          e instanceof ApiError
-            ? e.message
-            : e instanceof Error
-              ? e.message
-              : "Unable to start battle.",
-        );
-      });
-  }, [acceptBattle, clearFinishTimer, id, wallet]);
+      .catch(() => {});
+  }, [id, wallet]);
 
   const submitChallenge = useCallback(() => {
     if (!message.trim() || challenging) return;
@@ -323,13 +213,13 @@ export default function BattlePage() {
       body: { battleId: id, message: message.trim() },
     })
       .then((d) => {
-        acceptBattle(d.battle);
+        setBattle(d.battle);
         setLastRecalc(d.recalculation);
         setMessage("");
       })
       .catch((e) => setError(e.message))
       .finally(() => setChallenging(false));
-  }, [acceptBattle, id, message, challenging]);
+  }, [id, message, challenging]);
 
   const verify = useCallback(() => {
     setVerifying(true);
@@ -337,10 +227,10 @@ export default function BattlePage() {
       method: "POST",
       body: { battleId: id },
     })
-      .then((d) => acceptBattle(d.battle))
+      .then((d) => setBattle(d.battle))
       .catch(() => {})
       .finally(() => setVerifying(false));
-  }, [acceptBattle, id]);
+  }, [id]);
 
   // ---- live agent signal + live position ----
   //
