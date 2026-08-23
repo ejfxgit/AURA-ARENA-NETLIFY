@@ -61,6 +61,15 @@ export async function POST(
   if (battle.status === "WAITING") {
     return NextResponse.json({ error: "Battle has not started." }, { status: 400 });
   }
+  // Only ACTIVE battles can be settled. Other terminal states are either
+  // already handled above (VERIFIED/SETTLING/FINISHED+settlement_applied) or
+  // indicate an inconsistent record that must not be force-settled.
+  if (battle.status !== "ACTIVE") {
+    return NextResponse.json(
+      { error: "Battle is not in an active state.", battle },
+      { status: 409 },
+    );
+  }
   if (battleExpiresAt(battle) === null) {
     return NextResponse.json({ error: "Battle timing is invalid." }, { status: 409 });
   }
