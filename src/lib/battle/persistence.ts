@@ -33,11 +33,8 @@ export async function loadAuthoritativeBattle(
 ): Promise<Battle | null> {
   const persisted = await loadBattle(supabase, userId, battleId);
   if (!persisted) return null;
-  // Refresh the cache from the canonical row; the cache is never authoritative.
+  // Cache refresh only. Nothing downstream reads this back as state.
   const normalized = normalizeBattleLeverage(persisted);
-  // The database RPC is the canonical read. Never substitute a module-global
-  // cache snapshot for the persisted row here: a same-status ACTIVE snapshot
-  // can carry a stale expires_at and would let a server route act on old timing.
   saveBattle(normalized);
   return normalized;
 }
