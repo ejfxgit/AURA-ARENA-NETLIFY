@@ -33,6 +33,11 @@ export async function loadAuthoritativeBattle(
 ): Promise<Battle | null> {
   const persisted = await loadBattle(supabase, userId, battleId);
   if (!persisted) return null;
+
+  // Never let a mismatched response populate the process-local cache. This
+  // helper is used by mutating routes where the database row is authoritative.
+  if (persisted.id !== battleId) return null;
+
   // Cache refresh only. Nothing downstream reads this back as state.
   const normalized = normalizeBattleLeverage(persisted);
   saveBattle(normalized);
