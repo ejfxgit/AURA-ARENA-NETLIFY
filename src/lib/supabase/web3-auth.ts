@@ -1,10 +1,9 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { createClient, type Session } from "@supabase/supabase-js";
-import { isAddress, recoverMessageAddress, type Hex } from "viem";
+import { getAddress, isAddress, recoverMessageAddress, type Hex } from "viem";
 import { supabaseConfigError } from "@/lib/config";
 import { PRODUCTION_SITE_URL } from "@/lib/public-config";
-import { getSupabaseAdmin } from "./server";
-import { walletAddressClaimFromUser, walletAddressFromUser } from "./wallet-identity";
+import { walletAddressFromUser } from "./wallet-identity";
 
 export const WALLET_CHALLENGE_COOKIE = "aura_wallet_challenge";
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -54,22 +53,6 @@ function decodeChallenge(token: string): ChallengePayload {
   } catch {
     throw new WalletAuthError("Wallet challenge is missing or invalid", 401);
   }
-}
-
-async function preferredSiweAddress(walletAddress: string): Promise<string> {
-  const admin = getSupabaseAdmin();
-  const { data: profile, error: profileError } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("wallet_address", walletAddress)
-    .maybeSingle();
-  if (profileError) throw new WalletAuthError("Unable to prepare wallet challenge", 503);
-  if (!profile) return walletAddress;
-
-  const { data, error } = await admin.auth.admin.getUserById(profile.id);
-  if (error || !data.user) throw new WalletAuthError("Unable to restore wallet identity", 503);
-  const existingClaim = walletAddressClaimFromUser(data.user);
-  return existingClaim?.toLowerCase() === walletAddress ? existingClaim : walletAddress;
 }
 
 function requestOriginFromHeaders(requestUrl: string, headers?: Headers): URL {
@@ -130,7 +113,11 @@ function buildSiweMessage(
 export async function createWalletAuthChallenge(walletAddress: string, requestUrl: string, headers?: Headers) {
   if (!isAddress(walletAddress)) throw new WalletAuthError("Invalid wallet address");
   const normalizedAddress = walletAddress.toLowerCase();
-  const siweAddress = await preferredSiweAddress(normalizedAddress);
+  // Challenge generation must not depend on a profile-row lookup. That lookup
+  // was failing with "Unable to prepare wallet challenge" before the wallet
+  // could sign, preventing first-time users (and accounts with schema/query
+  // issues) from authenticating. EIP-55 checksum formatting is deterministic.
+  const siweAddress = getAddress(walletAddress);
   const issuedAt = new Date();
   const expirationTime = new Date(issuedAt.getTime() + CHALLENGE_TTL_MS);
   const message = buildSiweMessage(
